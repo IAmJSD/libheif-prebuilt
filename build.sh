@@ -32,12 +32,23 @@ common_flags=()
 if [ "$os" = linux ]; then
     linker_flags="-static-libstdc++ -static-libgcc"
 fi
+de265_extra=()
+heif_extra=()
 if [ "$os" = windows ]; then
     # Static MSVC runtime, so the DLL doesn't require a VC redist.
     common_flags+=(
         -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
         -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
     )
+    # MSVC "accepts" -fvisibility=hidden with a warning, so the flag
+    # check defines HAVE_VISIBILITY and de265.h then uses the GCC-only
+    # __attribute__ syntax; preseed the cache to skip the check.
+    de265_extra+=(-DHAVE_VISIBILITY=0)
+    # de265.h decorates the API dllimport unless told the library is
+    # static; without this libheif's decoder gets unresolved __imp_
+    # symbols. The other flags restate MSVC's defaults, which setting
+    # CMAKE_CXX_FLAGS on the command line would otherwise drop.
+    heif_extra+=("-DCMAKE_CXX_FLAGS=/DWIN32 /D_WINDOWS /EHsc /DLIBDE265_STATIC_BUILD")
 fi
 
 cmake -S "$DE265" -B build/de265 \
@@ -46,6 +57,7 @@ cmake -S "$DE265" -B build/de265 \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DENABLE_SDL=OFF -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF \
     ${common_flags[@]+"${common_flags[@]}"} \
+    ${de265_extra[@]+"${de265_extra[@]}"} \
     -DCMAKE_INSTALL_PREFIX="$prefix"
 # --config is required on Windows's multi-config generator; harmless on
 # the single-config Unix ones.
@@ -69,6 +81,7 @@ PKG_CONFIG_PATH="$prefix/lib/pkgconfig" cmake -S "$HEIF" -B build/heif \
     -DBUILD_TESTING=OFF -DBUILD_DOCUMENTATION=OFF \
     -DCMAKE_SHARED_LINKER_FLAGS="$linker_flags" \
     ${common_flags[@]+"${common_flags[@]}"} \
+    ${heif_extra[@]+"${heif_extra[@]}"} \
     -DCMAKE_INSTALL_PREFIX="$prefix"
 cmake --build build/heif --config Release -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 cmake --install build/heif --config Release
