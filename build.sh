@@ -28,8 +28,16 @@ esac
 
 prefix="$PWD/build/prefix"
 linker_flags=""
+common_flags=()
 if [ "$os" = linux ]; then
     linker_flags="-static-libstdc++ -static-libgcc"
+fi
+if [ "$os" = windows ]; then
+    # Static MSVC runtime, so the DLL doesn't require a VC redist.
+    common_flags+=(
+        -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
+        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+    )
 fi
 
 cmake -S "$DE265" -B build/de265 \
@@ -37,9 +45,12 @@ cmake -S "$DE265" -B build/de265 \
     -DBUILD_SHARED_LIBS=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DENABLE_SDL=OFF -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF \
+    "${common_flags[@]}" \
     -DCMAKE_INSTALL_PREFIX="$prefix"
-cmake --build build/de265 -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
-cmake --install build/de265
+# --config is required on Windows's multi-config generator; harmless on
+# the single-config Unix ones.
+cmake --build build/de265 --config Release -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+cmake --install build/de265 --config Release
 
 PKG_CONFIG_PATH="$prefix/lib/pkgconfig" cmake -S "$HEIF" -B build/heif \
     -DCMAKE_BUILD_TYPE=Release \
@@ -57,15 +68,16 @@ PKG_CONFIG_PATH="$prefix/lib/pkgconfig" cmake -S "$HEIF" -B build/heif \
     -DWITH_EXAMPLES=OFF -DWITH_GDK_PIXBUF=OFF \
     -DBUILD_TESTING=OFF -DBUILD_DOCUMENTATION=OFF \
     -DCMAKE_SHARED_LINKER_FLAGS="$linker_flags" \
+    "${common_flags[@]}" \
     -DCMAKE_INSTALL_PREFIX="$prefix"
-cmake --build build/heif -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
-cmake --install build/heif
+cmake --build build/heif --config Release -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+cmake --install build/heif --config Release
 
 mkdir -p "$OUT"
 case "$os" in
     linux)   built="$prefix/lib/libheif.so.$HEIF_VERSION" ;;
     macos)   built="$(find "$prefix/lib" -name 'libheif*.dylib' -type f | head -1)" ;;
-    windows) built="$prefix/bin/heif.dll" ;;
+    windows) built="$(find "$prefix/bin" -name '*heif*.dll' | head -1)" ;;
 esac
 artifact="$OUT/libheif-$HEIF_VERSION-$os-$arch.$ext"
 cp "$built" "$artifact"

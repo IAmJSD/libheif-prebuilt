@@ -16,11 +16,15 @@ jobs:
             artifact: macos-aarch64
           - os: macos-15-intel
             artifact: macos-x86_64
+          - os: windows-2022
+            artifact: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - run: ./build.sh dist
+        shell: bash
       - run: ls -la dist && shasum -a 256 dist/*
+        shell: bash
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
