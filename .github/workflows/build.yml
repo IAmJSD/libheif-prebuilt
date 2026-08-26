@@ -29,12 +29,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./build.sh dist
         shell: bash
-      - run: ls -la dist && shasum -a 256 dist/*
+      - run: ls -la dist && (shasum -a 256 dist/* 2>/dev/null || sha256sum dist/*)
         shell: bash
+      # Only the library: license texts come from the release job's
+      # checkout, so Windows's CRLF-converted copies never race the
+      # LF ones whose hashes schist pins.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/*
+          path: dist/libheif-*
 
   release:
     if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
@@ -48,10 +51,14 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # The complete corresponding source for the LGPL-3.0 artifacts.
+      # License texts plus the complete corresponding source for the
+      # LGPL-3.0 artifacts.
       - run: |
+          cp vendor/libheif-1.23.2/COPYING dist/COPYING-libheif.txt
+          cp vendor/libde265-1.1.1/COPYING dist/COPYING-libde265.txt
           tar czf dist/libde265-1.1.1-src.tar.gz -C vendor libde265-1.1.1
           tar czf dist/libheif-1.23.2-src.tar.gz -C vendor libheif-1.23.2
+          sha256sum dist/*
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
