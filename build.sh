@@ -45,7 +45,7 @@ cmake -S "$DE265" -B build/de265 \
     -DBUILD_SHARED_LIBS=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DENABLE_SDL=OFF -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF \
-    "${common_flags[@]}" \
+    ${common_flags[@]+"${common_flags[@]}"} \
     -DCMAKE_INSTALL_PREFIX="$prefix"
 # --config is required on Windows's multi-config generator; harmless on
 # the single-config Unix ones.
@@ -68,7 +68,7 @@ PKG_CONFIG_PATH="$prefix/lib/pkgconfig" cmake -S "$HEIF" -B build/heif \
     -DWITH_EXAMPLES=OFF -DWITH_GDK_PIXBUF=OFF \
     -DBUILD_TESTING=OFF -DBUILD_DOCUMENTATION=OFF \
     -DCMAKE_SHARED_LINKER_FLAGS="$linker_flags" \
-    "${common_flags[@]}" \
+    ${common_flags[@]+"${common_flags[@]}"} \
     -DCMAKE_INSTALL_PREFIX="$prefix"
 cmake --build build/heif --config Release -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 cmake --install build/heif --config Release
