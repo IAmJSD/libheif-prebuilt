@@ -1,0 +1,50 @@
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04        # oldest glibc we support
+            artifact: linux-x86_64
+          - os: ubuntu-22.04-arm
+            artifact: linux-aarch64
+          - os: macos-14
+            artifact: macos-aarch64
+          - os: macos-13
+            artifact: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./build.sh dist
+      - run: ls -la dist && shasum -a 256 dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # The complete corresponding source for the LGPL-3.0 artifacts.
+      - run: |
+          tar czf dist/libde265-1.1.1-src.tar.gz -C vendor libde265-1.1.1
+          tar czf dist/libheif-1.23.2-src.tar.gz -C vendor libheif-1.23.2
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: dist/*
