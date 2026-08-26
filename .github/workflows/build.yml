@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to attach the built artifacts to (draft release)"
+        required: false
+        default: ""
 
 jobs:
   build:
@@ -31,7 +36,7 @@ jobs:
           path: dist/*
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -48,5 +53,6 @@ jobs:
           tar czf dist/libheif-1.23.2-src.tar.gz -C vendor libheif-1.23.2
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           draft: true
           files: dist/*
