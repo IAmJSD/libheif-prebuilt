@@ -40,10 +40,12 @@ if [ "$os" = windows ]; then
         -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
         -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
     )
-    # MSVC "accepts" -fvisibility=hidden with a warning, so the flag
-    # check defines HAVE_VISIBILITY and de265.h then uses the GCC-only
-    # __attribute__ syntax; preseed the cache to skip the check.
-    de265_extra+=(-DHAVE_VISIBILITY=0)
+    # libde265 defines HAVE_VISIBILITY for every optimized build, and
+    # de265.h then uses the GCC-only __attribute__((__visibility__))
+    # syntax, which MSVC rejects. FORCE_FULL_VISIBILITY skips all of
+    # that; it only exists to shrink ELF symbol tables, which a static
+    # Windows lib doesn't have.
+    de265_extra+=(-DFORCE_FULL_VISIBILITY=ON)
     # de265.h decorates the API dllimport unless told the library is
     # static; without this libheif's decoder gets unresolved __imp_
     # symbols. The other flags restate MSVC's defaults, which setting
