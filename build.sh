@@ -49,8 +49,10 @@ if [ "$os" = windows ]; then
     # de265.h decorates the API dllimport unless told the library is
     # static; without this libheif's decoder gets unresolved __imp_
     # symbols. The other flags restate MSVC's defaults, which setting
-    # CMAKE_CXX_FLAGS on the command line would otherwise drop.
-    heif_extra+=("-DCMAKE_CXX_FLAGS=/DWIN32 /D_WINDOWS /EHsc /DLIBDE265_STATIC_BUILD")
+    # CMAKE_CXX_FLAGS on the command line would otherwise drop. Dash
+    # style, not slash: cl.exe accepts both, and Git Bash's MSYS layer
+    # rewrites slash-prefixed args into C:/Program Files/... paths.
+    heif_extra+=("-DCMAKE_CXX_FLAGS=-DWIN32 -D_WINDOWS -EHsc -DLIBDE265_STATIC_BUILD")
 fi
 
 cmake -S "$DE265" -B build/de265 \
