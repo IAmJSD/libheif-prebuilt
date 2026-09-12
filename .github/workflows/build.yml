@@ -26,11 +26,22 @@ jobs:
             artifact: macos-x86_64
           - os: windows-2022
             artifact: windows-x86_64
+          # Cross builds with the NDK the Ubuntu image ships
+          # (ANDROID_NDK_LATEST_HOME); arm64 for devices and Apple
+          # Silicon emulators, x86_64 for emulators on Intel hosts.
+          - os: ubuntu-22.04
+            artifact: android-aarch64
+            android_abi: arm64-v8a
+          - os: ubuntu-22.04
+            artifact: android-x86_64
+            android_abi: x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - run: ./build.sh dist
         shell: bash
+        env:
+          ANDROID_ABI: ${{ matrix.android_abi }}
       - run: ls -la dist && (shasum -a 256 dist/* 2>/dev/null || sha256sum dist/*)
         shell: bash
       # Only the library: license texts come from the release job's

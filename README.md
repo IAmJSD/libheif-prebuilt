@@ -19,9 +19,12 @@ One shared library per platform, e.g. `libheif-1.23.2-linux-x86_64.so`:
   (`WITH_LIBDE265=ON`, everything else `OFF`, plugin loading disabled)
 - libde265 statically linked inside
 - on Linux, libstdc++/libgcc statically linked too — the artifact depends
-  only on libc/libm
+  only on libc/libm; on Android likewise the NDK's libc++, so the artifact
+  depends only on Bionic's libc/libm/libdl
 
-Reproduce with `./build.sh` (needs cmake and a C++ compiler).
+Reproduce with `./build.sh` (needs cmake and a C++ compiler). The Android
+artifacts are cross builds: `ANDROID_ABI=arm64-v8a ./build.sh` (or
+`x86_64`) with an NDK at `ANDROID_NDK_HOME`.
 
 ## Licensing
 
@@ -53,6 +56,6 @@ licenses.
 ## Cutting a release
 
 Tag `v<libheif-version>-<n>` (e.g. `v1.23.2-1`) and push; CI builds the
-Linux and macOS artifacts and attaches them, the license texts, and the
-source tarballs to a draft release. Publish it, then update the
+Linux, macOS, Windows and Android artifacts and attaches them, the license
+texts, and the source tarballs to a draft release. Publish it, then update the
 hash-pinned URL table in schist (`plugins/codecs-common/src/heif.rs`).

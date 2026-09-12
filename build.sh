@@ -6,6 +6,13 @@
 # and every other codec is disabled.
 #
 # Usage: ./build.sh [out-dir]   (defaults to ./dist)
+#
+# Android is a cross build from any host with an NDK:
+#   ANDROID_ABI=arm64-v8a ./build.sh dist     (or x86_64, for emulators)
+# The NDK is $ANDROID_NDK_HOME, else $ANDROID_NDK_LATEST_HOME (set on
+# GitHub's runners), else the newest under $ANDROID_HOME/ndk. The NDK's
+# libc++ is linked statically for the same reason as libstdc++ on Linux:
+# the app that dlopens the artifact ships no libc++_shared.so.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -14,23 +21,55 @@ HEIF=vendor/libheif-1.23.2
 HEIF_VERSION=1.23.2
 OUT="${1:-dist}"
 
-case "$(uname -s)" in
-    Linux)  os=linux;  ext=so ;;
-    Darwin) os=macos;  ext=dylib ;;
-    MINGW*|MSYS*) os=windows; ext=dll ;;
-    *) echo "unsupported OS" >&2; exit 1 ;;
-esac
-case "$(uname -m)" in
-    x86_64|amd64) arch=x86_64 ;;
-    arm64|aarch64) arch=aarch64 ;;
-    *) echo "unsupported arch" >&2; exit 1 ;;
-esac
+ANDROID_ABI="${ANDROID_ABI:-}"
+if [ -n "$ANDROID_ABI" ]; then
+    os=android; ext=so
+    case "$ANDROID_ABI" in
+        arm64-v8a) arch=aarch64 ;;
+        x86_64) arch=x86_64 ;;
+        *) echo "unsupported ANDROID_ABI $ANDROID_ABI (arm64-v8a or x86_64)" >&2; exit 1 ;;
+    esac
+else
+    case "$(uname -s)" in
+        Linux)  os=linux;  ext=so ;;
+        Darwin) os=macos;  ext=dylib ;;
+        MINGW*|MSYS*) os=windows; ext=dll ;;
+        *) echo "unsupported OS" >&2; exit 1 ;;
+    esac
+    case "$(uname -m)" in
+        x86_64|amd64) arch=x86_64 ;;
+        arm64|aarch64) arch=aarch64 ;;
+        *) echo "unsupported arch" >&2; exit 1 ;;
+    esac
+fi
 
 prefix="$PWD/build/prefix"
 linker_flags=""
 common_flags=()
+strip_tool=strip
 if [ "$os" = linux ]; then
     linker_flags="-static-libstdc++ -static-libgcc"
+fi
+if [ "$os" = android ]; then
+    ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK_LATEST_HOME:-}}"
+    if [ -z "$ndk" ] && [ -n "${ANDROID_HOME:-}" ]; then
+        ndk=$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1)
+    fi
+    if [ ! -f "$ndk/build/cmake/android.toolchain.cmake" ]; then
+        echo "no NDK: set ANDROID_NDK_HOME" >&2; exit 1
+    fi
+    # The NDK's toolchain file confines find_package to its sysroot;
+    # CMAKE_FIND_ROOT_PATH lets libheif find the libde265 installed in
+    # the prefix (the toolchain appends the sysroot to it). android-30
+    # matches the app's minSdkVersion.
+    common_flags+=(
+        -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake"
+        -DANDROID_ABI="$ANDROID_ABI"
+        -DANDROID_PLATFORM=android-30
+        -DANDROID_STL=c++_static
+        -DCMAKE_FIND_ROOT_PATH="$prefix"
+    )
+    strip_tool=$(ls "$ndk"/toolchains/llvm/prebuilt/*/bin/llvm-strip | head -1)
 fi
 de265_extra=()
 heif_extra=()
@@ -93,13 +132,15 @@ cmake --install build/heif --config Release
 mkdir -p "$OUT"
 case "$os" in
     linux)   built="$prefix/lib/libheif.so.$HEIF_VERSION" ;;
+    # Android shared libraries carry no version in their name.
+    android) built="$prefix/lib/libheif.so" ;;
     macos)   built="$(find "$prefix/lib" -name 'libheif*.dylib' -type f | head -1)" ;;
     windows) built="$(find "$prefix/bin" -name '*heif*.dll' | head -1)" ;;
 esac
 artifact="$OUT/libheif-$HEIF_VERSION-$os-$arch.$ext"
 cp "$built" "$artifact"
 if [ "$os" != windows ]; then
-    strip -x "$artifact" 2>/dev/null || strip "$artifact"
+    "$strip_tool" -x "$artifact" 2>/dev/null || "$strip_tool" "$artifact"
 fi
 
 cp "$HEIF/COPYING" "$OUT/COPYING-libheif.txt"
