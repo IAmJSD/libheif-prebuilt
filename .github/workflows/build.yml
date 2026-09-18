@@ -42,6 +42,10 @@ jobs:
         shell: bash
         env:
           ANDROID_ABI: ${{ matrix.android_abi }}
+      - name: Verify version and decode HEIC
+        if: matrix.android_abi == ''
+        shell: bash
+        run: python verify.py dist/libheif-* vendor/libheif-1.23.4/examples/example.heic
       - run: ls -la dist && (shasum -a 256 dist/* 2>/dev/null || sha256sum dist/*)
         shell: bash
       # Only the library: license texts come from the release job's
@@ -67,11 +71,11 @@ jobs:
       # License texts plus the complete corresponding source for the
       # LGPL-3.0 artifacts.
       - run: |
-          cp vendor/libheif-1.23.2/COPYING dist/COPYING-libheif.txt
+          cp vendor/libheif-1.23.4/COPYING dist/COPYING-libheif.txt
           cp vendor/libde265-1.1.1/COPYING dist/COPYING-libde265.txt
           tar czf dist/libde265-1.1.1-src.tar.gz -C vendor libde265-1.1.1
-          tar czf dist/libheif-1.23.2-src.tar.gz -C vendor libheif-1.23.2
-          sha256sum dist/*
+          tar czf dist/libheif-1.23.4-src.tar.gz -C vendor libheif-1.23.4
+          (cd dist && sha256sum * > SHA256SUMS)
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}

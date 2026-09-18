@@ -17,8 +17,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 DE265=vendor/libde265-1.1.1
-HEIF=vendor/libheif-1.23.2
-HEIF_VERSION=1.23.2
+HEIF=vendor/libheif-1.23.4
+HEIF_VERSION=1.23.4
 OUT="${1:-dist}"
 
 ANDROID_ABI="${ANDROID_ABI:-}"
